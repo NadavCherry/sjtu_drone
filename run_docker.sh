@@ -5,7 +5,7 @@ usage(){
     exit 1
 }
 
-ROS_DISTRO=${ROS_DISTRO:-"iron"}  # [humble, iron, rolling]
+ROS_DISTRO=${ROS_DISTRO:-"humble"}  # default is humble
 while getopts "r:" opt; do
     case $opt in
         r)
@@ -25,17 +25,13 @@ done
 XSOCK=/tmp/.X11-unix
 XAUTH=$HOME/.Xauthority
 
-docker pull georgno/sjtu_drone:ros2-${ROS_DISTRO}
-
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
+# Use the local image we built instead of pulling from DockerHub
+IMAGE_NAME="sjtu_drone:${ROS_DISTRO}"
 
 xhost +local:docker
 docker run \
     -it --rm \
-    $VOLUMES \
+    --gpus all \
     -v ${XSOCK}:${XSOCK} \
     -v ${XAUTH}:${XAUTH} \
     -e DISPLAY=${DISPLAY} \
@@ -43,6 +39,7 @@ docker run \
     --env=QT_X11_NO_MITSHM=1 \
     --privileged \
     --net=host \
+    -v $HOME/drone_workspace:/root/drone_workspace:rw \
     --name="sjtu_drone" \
-    georgno/sjtu_drone:ros2-${ROS_DISTRO}
+    ${IMAGE_NAME}
 xhost -local:docker

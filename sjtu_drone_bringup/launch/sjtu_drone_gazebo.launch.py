@@ -51,10 +51,7 @@ def generate_launch_description():
     print("namespace: ", model_ns)
 
 
-    world_file_default = os.path.join(
-        get_package_share_directory("sjtu_drone_description"),
-        "worlds", "playground.world"
-    )
+    world_file_default = "/root/drone_workspace/gazebo_models_worlds_collection/worlds/office_cpr.world"
 
     world_file = LaunchConfiguration('world', default=world_file_default)
 
