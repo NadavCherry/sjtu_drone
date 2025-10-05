@@ -325,40 +325,4 @@
   <origin xyz="0 0 -0.15" rpy="0 0 0"/>
 </joint>
 
-<gazebo reference="laser_link">
-  <sensor type="ray" name="laser_scanner">
-    <pose>0 0 0 0 0 0</pose>
-    <update_rate>40</update_rate>
-    <visualize>true</visualize>
-    <always_on>true</always_on>
-    <ray>
-      <scan>
-        <horizontal>
-          <samples>1800</samples>
-          <resolution>1</resolution>
-          <min_angle>-3.14159</min_angle>
-          <max_angle>3.14159</max_angle>
-        </horizontal>
-      </scan>
-      <range>
-        <min>0.05</min>
-        <max>30.0</max>  <!-- More reasonable for indoor hospital -->
-        <resolution>0.001</resolution>
-      </range>
-      <noise>
-        <type>gaussian</type>
-        <mean>0.0</mean>
-        <stddev>0.0</stddev>  <!-- No noise for ground truth -->
-      </noise>
-    </ray>
-    <plugin name="gazebo_ros_laser" filename="libgazebo_ros_ray_sensor.so">
-      <ros>
-        <namespace>${mp['namespace']}</namespace>
-        <remapping>~/out:=scan</remapping>  <!-- Standard naming -->
-      </ros>
-      <output_type>sensor_msgs/LaserScan</output_type>  <!-- Most SLAM algorithms expect this -->
-      <frame_name>${mp['namespace']}/laser_link</frame_name>
-    </plugin>
-  </sensor>
-</gazebo>
 </robot>
