@@ -5,9 +5,17 @@ XSOCK=/tmp/.X11-unix
 XAUTH=$HOME/.Xauthority
 IMAGE_NAME="sjtu_drone:humble_ros2"
 
+# Parse arguments
+SKIP_MAP=false
+
+if [ "$1" == "--no-map" ]; then
+    SKIP_MAP=true
+    shift
+fi
+
 # Usage info
 if [ -z "$1" ]; then
-    echo "Usage: $0 <world_file>"
+    echo "Usage: $0 [--no-map] <world_file>"
     echo ""
     echo "Available worlds:"
     echo "  - hospital.world"
@@ -16,10 +24,13 @@ if [ -z "$1" ]; then
     echo ""
     echo "Examples:"
     echo "  $0 hospital.world"
-    echo "  $0 hospital_two_floors.world"
+    echo "  $0 --no-map hospital.world"
     echo ""
     exit 1
 fi
+
+WORLD_FILE=$1
+
 
 WORLD_FILE=$1
 
@@ -52,6 +63,7 @@ docker run \
     -v ${XAUTH}:${XAUTH} \
     -e DISPLAY=${DISPLAY} \
     -e XAUTHORITY=${XAUTH} \
+    -e SKIP_MAP=${SKIP_MAP} \
     --env=QT_X11_NO_MITSHM=1 \
     --privileged \
     --net=host \
@@ -61,6 +73,11 @@ docker run \
     bash -c "
         # Source ROS2 environment
         source /opt/ros/${ROS_DISTRO}/setup.bash
+        if [ -f "/root/drone_workspace/install/setup.bash" ]; then
+            source /root/drone_workspace/install/setup.bash
+        fi
+        echo \"source /opt/ros/${ROS_DISTRO}/setup.bash\" >> /root/.bashrc
+        echo \"source /root/drone_workspace/install/setup.bash\" >> /root/.bashrc
 
         # Force use of available RMW implementation
         export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
@@ -160,12 +177,16 @@ docker run \
         fi
 
         # Install Nav2 dependencies for the 2D map plugin
-        echo 'Checking for Nav2 dependencies...'
-        if ! ros2 pkg list | grep -q nav2_costmap_2d; then
-            echo 'Installing Nav2 dependencies for 2D map plugin...'
-            apt-get update > /dev/null 2>&1
-            apt-get install -y ros-${ROS_DISTRO}-nav2-costmap-2d ros-${ROS_DISTRO}-nav2-map-server ros-${ROS_DISTRO}-nav-msgs > /dev/null 2>&1
-            source /opt/ros/${ROS_DISTRO}/setup.bash
+        if [ "${SKIP_MAP}" != "true" ]; then
+            echo 'Checking for Nav2 dependencies...'
+            if ! ros2 pkg list | grep -q nav2_costmap_2d; then
+                echo 'Installing Nav2 dependencies for 2D map plugin...'
+                apt-get update > /dev/null 2>&1
+                apt-get install -y ros-${ROS_DISTRO}-nav2-costmap-2d ros-${ROS_DISTRO}-nav2-map-server ros-${ROS_DISTRO}-nav-msgs > /dev/null 2>&1
+                source /opt/ros/${ROS_DISTRO}/setup.bash
+            fi
+        else
+            echo 'Skipping Nav2 dependency installation (--no-map mode).'
         fi
 
         # No need to install git or clone - it's already mounted from host
