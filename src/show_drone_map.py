@@ -2,10 +2,9 @@
 """
 map_position_viewer.py
 ----------------------
-Loads a static occupancy grid map (hospital_map.pgm + hospital_map.yaml)
-once at startup, listens to /simple_drone/gt_pose for the drone position,
-and shows where the drone is on the map in real-time.
-Also includes functions to check if nearby cells are free or occupied.
+Loads a static occupancy grid map (hospital_map.pgm + hospital_map.yaml),
+listens to /simple_drone/gt_pose, and shows the drone on the map in real time.
+Also draws a colored rectangle for a specified target location on the map.
 """
 
 import rclpy
@@ -23,7 +22,7 @@ class MapPositionViewer(Node):
         super().__init__('map_position_viewer')
 
         # === Load map once ===
-        map_yaml_path = "/root/drone_workspace/sjtu_drone/maps/hospital_map_downscaled.yaml"
+        map_yaml_path = "/root/drone_workspace/sjtu_drone/maps/hospital_map_cropped.yaml"
         with open(map_yaml_path, 'r') as f:
             info = yaml.safe_load(f)
 
@@ -42,8 +41,12 @@ class MapPositionViewer(Node):
         # Convert to occupancy (0=free, 1=occupied)
         self.map_data = np.zeros_like(img, dtype=np.uint8)
         self.map_data[img < 50] = 1  # dark pixels = occupied
-        self.map_data = np.flipud(self.map_data)  # flip y-axis
+        self.map_data = np.flipud(self.map_data)
         self.get_logger().info(f"Map loaded: {map_image_path}, size={self.map_data.shape}")
+
+        # === Target coordinates (map coordinates) ===
+        self.target_map = (355, 593)  # (x, y) in map coordinates
+        self.target_size = 20  # rectangle half-size in pixels
 
         # === Subscribe to ground truth pose ===
         self.pose_sub = self.create_subscription(Pose, '/simple_drone/gt_pose', self.pose_callback, 10)
@@ -54,6 +57,10 @@ class MapPositionViewer(Node):
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
         self.im = self.ax.imshow(self.map_data, cmap='gray', origin='lower')
         self.point, = self.ax.plot([], [], 'ro', markersize=5)
+
+        # Draw target rectangle
+        self.draw_target_rectangle()
+
         self.ax.set_title("Drone position on occupancy map")
         plt.show(block=False)
 
@@ -81,6 +88,21 @@ class MapPositionViewer(Node):
             return self.map_data[y_map, x_map] == 0
         return False
 
+    # === Draw target rectangle ===
+    def draw_target_rectangle(self):
+        x_t, y_t = self.target_map
+        s = self.target_size
+        rect = plt.Rectangle(
+            (x_t - s, y_t - s),
+            2 * s,
+            2 * s,
+            linewidth=2,
+            edgecolor='lime',
+            facecolor='none'
+        )
+        self.ax.add_patch(rect)
+        self.get_logger().info(f"Target rectangle drawn at ({x_t},{y_t}), size={s*2}px")
+
     # === Visualization update ===
     def update_display(self):
         if self.drone_pose is None:
@@ -90,13 +112,6 @@ class MapPositionViewer(Node):
         self.point.set_data([x_map], [y_map])
         self.ax.set_title(f"Drone Position (map coords): ({x_map}, {y_map})")
         plt.pause(0.05)
-
-        # # Print occupancy info
-        # if self.is_free(x_map, y_map):
-        #     self.get_logger().info("Drone is in a FREE cell.")
-        # else:
-        #     self.get_logger().warn("Drone is in an OCCUPIED cell!")
-
 
     # === Main loop ===
     def spin(self):
